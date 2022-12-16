@@ -1,4 +1,3 @@
-delete state.DropItem;
 /**
  * DropItem
  *
