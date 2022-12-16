@@ -3,21 +3,21 @@ delete state.DropItem;
  * DropItem
  *
  * Version 1.0
- * Last updated: November 14, 2022
+ * Last updated: December 16, 2022
  * Author: thatblindgeye
  * GitHub: https://github.com/thatblindgeye
  */
 
 const DropItem = (function () {
   const VERSION = "1.0 ";
-  const LAST_UPDATED = 1668553822810;
+  const LAST_UPDATED = 1671215503907;
   const DROPITEM_BASE_NAME = "DropItem";
   const DROPITEM_DISPLAY_NAME = `${DROPITEM_BASE_NAME} v${VERSION}`;
 
   const COMMANDS = {
-    CREATE_TYPE: "create-type",
-    UPDATE_TYPE: "update-type",
-    DELETE_TYPE: "delete-type",
+    CREATE_TYPE: "create",
+    UPDATE_TYPE: "update",
+    DELETE_TYPE: "delete",
     TYPES: "types",
     DROP: "drop",
     GM_ONLY: "gm-only",
@@ -56,6 +56,16 @@ const DropItem = (function () {
 
   function sendMessage(message) {
     sendChat(DROPITEM_DISPLAY_NAME, message, null, { noarchive: true });
+  }
+
+  function sortIgnoringCase(arrayToSort) {
+    const arrayCopy = JSON.parse(JSON.stringify(arrayToSort));
+
+    return arrayCopy.sort((toSortA, toSortB) =>
+      toSortA.name.localeCompare(toSortB.name, undefined, {
+        sensitivity: "base",
+      })
+    );
   }
 
   function getCleanImgsrc(imgsrc) {
@@ -100,28 +110,61 @@ const DropItem = (function () {
     return `?{${dropdownLabel}|${typesString}}`;
   }
 
-  function createDropMacro() {
-    const macroAction = `!dropitem ${COMMANDS.DROP}|${createTypesQuery(
-      "Item to drop:"
-    )}|?{Item display name (optional):}`;
-    const macroName = `${DROPITEM_BASE_NAME}-${COMMANDS.DROP}`;
-    const currentMacro = getMacroByName(macroName);
+  function createMacros() {
+    const macros = [
+      {
+        name: `${DROPITEM_BASE_NAME}-${COMMANDS.CREATE_TYPE}`,
+        action: `!dropitem ${COMMANDS.CREATE_TYPE}|?{Item type to create}`,
+      },
+      {
+        name: `${DROPITEM_BASE_NAME}-${COMMANDS.UPDATE_TYPE}`,
+        action: `!dropitem ${COMMANDS.UPDATE_TYPE}|${createTypesQuery(
+          "Item type to update"
+        )}|?{New item type name (optional)}`,
+      },
+      {
+        name: `${DROPITEM_BASE_NAME}-${COMMANDS.DELETE_TYPE}`,
+        action: `!dropitem ${COMMANDS.DELETE_TYPE}|${createTypesQuery(
+          "Item type to delete"
+        )}`,
+      },
+      {
+        name: `${DROPITEM_BASE_NAME}-${COMMANDS.DROP}`,
+        action: `!dropitem ${COMMANDS.DROP}|${createTypesQuery(
+          "Item to drop"
+        )}|?{Item display name (optional)}`,
+      },
+      {
+        name: `${DROPITEM_BASE_NAME}-${COMMANDS.TYPES}`,
+        action: `!dropitem ${COMMANDS.TYPES}`,
+      },
+    ];
 
-    if (currentMacro.length) {
-      currentMacro[0].set({ action: macroAction });
-    } else {
-      const gmPlayers = getGMPlayers();
+    const gmPlayers = getGMPlayers();
+    const { UPDATE_TYPE, DELETE_TYPE, DROP } = COMMANDS;
+    const macroNamesToUpdate = _.map(
+      [UPDATE_TYPE, DELETE_TYPE, DROP],
+      (command) => `${DROPITEM_BASE_NAME}-${command}`
+    );
 
-      createObj("macro", {
-        _playerid: gmPlayers[0].get("_id"),
-        name: macroName,
-        action: macroAction,
-        visibleto: state[DROPITEM_BASE_NAME].gmDropOnly
-          ? _.pluck(gmPlayers, "id").join(",")
-          : "all",
-        istokenaction: true,
-      });
-    }
+    _.each(macros, (macro) => {
+      const { name, action } = macro;
+      const existingMacro = getMacroByName(name);
+
+      if (existingMacro.length && macroNamesToUpdate.includes(name)) {
+        existingMacro[0].set({ action });
+      } else if (!existingMacro.length) {
+        createObj("macro", {
+          _playerid: gmPlayers[0].get("_id"),
+          name,
+          action,
+          visibleto: state[DROPITEM_BASE_NAME].gmDropOnly
+            ? _.pluck(gmPlayers, "id").join(",")
+            : "all",
+          istokenaction: name === `${DROPITEM_BASE_NAME}-${COMMANDS.DROP}`,
+        });
+      }
+    });
   }
 
   function validateCommand(message) {
@@ -220,10 +263,10 @@ const DropItem = (function () {
     const token = getObj("graphic", selectedToken._id);
     const imgsrc = getCleanImgsrc(token.get("imgsrc"));
 
-    state[DROPITEM_BASE_NAME].itemTypes = _.sortBy(
-      [...state[DROPITEM_BASE_NAME].itemTypes, { name, imgsrc }],
-      "name"
-    );
+    state[DROPITEM_BASE_NAME].itemTypes = sortIgnoringCase([
+      ...state[DROPITEM_BASE_NAME].itemTypes,
+      { name, imgsrc },
+    ]);
   }
 
   function updateItemType(selectedToken, typeToUpdate, newName) {
@@ -250,7 +293,7 @@ const DropItem = (function () {
       return itemType;
     });
 
-    state[DROPITEM_BASE_NAME].itemTypes = _.sortBy(updatedTypes, "name");
+    state[DROPITEM_BASE_NAME].itemTypes = sortIgnoringCase(updatedTypes);
   }
 
   function dropItem(selectedToken, player, itemTypeToDrop, itemDisplayName) {
@@ -287,20 +330,20 @@ const DropItem = (function () {
       "<thead><tr><th style='padding: 2px;'>Command</th><th style='padding: 2px 2px 2px 10px;'>Description</th></tr></thead>";
 
     const createTypeCells = configRowTemplate({
-      commandCell: `<a href="!dropitem ${CREATE_TYPE}|?{Item type:}">Create Item Type</a>`,
-      descriptionCell: `<div><code>!dropitem ${CREATE_TYPE}|[name of the item type]</code></div><br/><div>Creates a new item type to be dropped by other tokens.</div><br/><div>When calling this command, a valid token must be selected on the tabletop. A valid token must have been uploaded to your Roll20 library, and cannot have the default token image. The selected token cannot be one that was purchased through the Roll20 marketplace.</div>`,
+      commandCell: `<a href="!dropitem ${CREATE_TYPE}|?{Item type to create}">Create Item Type</a>`,
+      descriptionCell: `<div><code>!dropitem ${CREATE_TYPE}|[name of the item type]</code></div><br/><div>Creates a new item type to be dropped by other tokens.</div><br/><div>When calling this command, a valid token must be selected on the tabletop to use its image as the image of the new item type. A valid token must have been uploaded to your Roll20 library, and cannot have the default token image. The selected token cannot be one that was purchased through the Roll20 marketplace.</div>`,
     });
 
     const updateTypeCells = configRowTemplate({
       commandCell: `<a href="!dropitem ${UPDATE_TYPE}|${createTypesQuery(
-        "Item type to update:"
-      )}|?{New item type name (optional):}">Update Item Type</a>`,
+        "Item type to update"
+      )}|?{New item type name (optional)}">Update Item Type</a>`,
       descriptionCell: `<div><code>!dropitem ${UPDATE_TYPE}|[item type to update]|[optional new item type name]</code></div><br/><div>Updates an existing item type.</div><br/><div>If a token is not selected when this command is called, only the item type name will be updated. If no new item type name is provided, only the item type image will be updated if a valid token is selected.</div>`,
     });
 
     const deleteTypeCells = configRowTemplate({
       commandCell: `<a href="!dropitem ${DELETE_TYPE}|${createTypesQuery(
-        "Item type to delete:"
+        "Item type to delete"
       )}">Delete Item Type</a>`,
       descriptionCell: `<div><code>!dropitem ${DELETE_TYPE}|[item type to delete]</code></div><br/><div>Deletes an existing item type.</div>`,
     });
@@ -313,13 +356,13 @@ const DropItem = (function () {
     const dropCells = configRowTemplate({
       commandCell: `<a href="!dropitem ${DROP}|${createTypesQuery(
         "Item to drop"
-      )}|?{Item display name (optional):}">Drop Item</a>`,
+      )}|?{Item display name (optional)}">Drop Item</a>`,
       descriptionCell: `<div><code>!dropitem ${DROP}|[item to drop]|[optional display name for item]</code></div><br/><div>Drops the specified item in the selected token's space. A token must be selected on the tabletop in order to call this command. If no display name is provided, the display name will default to the player's name + the item type name.</div>`,
     });
 
     const { gmDropOnly } = state[DROPITEM_BASE_NAME];
     const gmOnlyCells = configRowTemplate({
-      commandCell: `<a href="!dropitem ${GM_ONLY}|?{Items can be dropped by:|GM only,true|All players,false}">Item Drop by GM Only: ${
+      commandCell: `<a href="!dropitem ${GM_ONLY}|?{Items can be dropped by|GM only,true|All players,false}">Item Drop by GM Only: ${
         gmDropOnly ? "Enabled" : "Disabled"
       }</a>`,
       descriptionCell: `<div><code>!dropitem ${GM_ONLY}|[optional true or false]</code></div><br/><div>When called without an argument of "true" or "false", display the current setting for whether items can be dropped by the GM only. Updates the setting when called with an argument.</div>`,
@@ -352,7 +395,7 @@ const DropItem = (function () {
       switch (command) {
         case CREATE_TYPE:
           createItemType(message.selected[0], args[0]);
-          createDropMacro();
+          createMacros();
           buildConfigDisplay();
           sendMessage(
             `/w gm The <code>${args[0]}</code> item type has been created.`
@@ -364,7 +407,7 @@ const DropItem = (function () {
             : undefined;
 
           updateItemType(selectedToken, ...args);
-          createDropMacro();
+          createMacros();
           buildConfigDisplay();
           sendMessage(
             `/w gm The <code>${args[0]}</code> item type has been updated.`
@@ -375,6 +418,8 @@ const DropItem = (function () {
             state[DROPITEM_BASE_NAME].itemTypes,
             (itemType) => itemType.name.toLowerCase() !== args[0].toLowerCase()
           );
+
+          createMacros();
           buildConfigDisplay();
           sendMessage(
             `/w gm The <code>${args[0]}</code> item type has been deleted.`
@@ -405,17 +450,7 @@ const DropItem = (function () {
               args[0].toLowerCase().replace(/\s*/g, "") === "true";
             state[DROPITEM_BASE_NAME].gmDropOnly = newGMDropOnly;
 
-            const currentMacro = getMacroByName(
-              `${DROPITEM_BASE_NAME}-${COMMANDS.DROP}`
-            );
-            if (currentMacro.length) {
-              currentMacro[0].set({
-                visibleto: newGMDropOnly
-                  ? _.pluck(getGMPlayers(), "id").join(",")
-                  : "all",
-              });
-            }
-
+            createMacros();
             buildConfigDisplay();
           }
 
@@ -452,7 +487,11 @@ const DropItem = (function () {
     if (!_.has(state, DROPITEM_BASE_NAME)) {
       log("Installing " + DROPITEM_DISPLAY_NAME);
       state[DROPITEM_BASE_NAME] = JSON.parse(JSON.stringify(DEFAULT_STATE));
-      createDropMacro();
+
+      createMacros();
+      log(
+        "DropItem-create, DropItem-update, DropItem-delete, DropItem-types, and DropItem-drop macros created..."
+      );
     }
 
     log(
@@ -460,7 +499,7 @@ const DropItem = (function () {
         LAST_UPDATED
       ).toLocaleDateString("en-US", {
         dateStyle: "long",
-      })}.`
+      })}. Send the '!dropitem' command (without quotes) in chat for a list of valid commands.`
     );
   }
 
