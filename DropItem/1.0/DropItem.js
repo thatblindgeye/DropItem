@@ -1,15 +1,15 @@
 /**
  * DropItem
  *
- * Version 1.0
- * Last updated: December 16, 2022
+ * Version 1.1
+ * Last updated: December 28, 2022
  * Author: thatblindgeye
  * GitHub: https://github.com/thatblindgeye
  */
 
 const DropItem = (function () {
-  const VERSION = "1.0 ";
-  const LAST_UPDATED = 1671215503907;
+  const VERSION = "1.1 ";
+  const LAST_UPDATED = 1672255878769;
   const DROPITEM_BASE_NAME = "DropItem";
   const DROPITEM_DISPLAY_NAME = `${DROPITEM_BASE_NAME} v${VERSION}`;
 
@@ -131,7 +131,7 @@ const DropItem = (function () {
         name: `${DROPITEM_BASE_NAME}-${COMMANDS.DROP}`,
         action: `!dropitem ${COMMANDS.DROP}|${createTypesQuery(
           "Item to drop"
-        )}|?{Item display name (optional)}`,
+        )}|?{Item display name (optional)}|light=?{Item light settings (optional)}, aura=?{Item aura settings (optional)}`,
       },
       {
         name: `${DROPITEM_BASE_NAME}-${COMMANDS.TYPES}`,
@@ -164,6 +164,91 @@ const DropItem = (function () {
         });
       }
     });
+  }
+
+  function setTokenLight(tokenToSet, inheritFromToken, lightOptions) {
+    if (inheritFromToken && /^inherit$/i.test(lightOptions[0])) {
+      tokenToSet.set({
+        emits_bright_light: inheritFromToken.get("emits_bright_light"),
+        bright_light_distance: inheritFromToken.get("bright_light_distance"),
+        emits_low_light: inheritFromToken.get("emits_low_light"),
+        low_light_distance: inheritFromToken.get("low_light_distance"),
+        has_directional_bright_light: inheritFromToken.get(
+          "has_directional_bright_light"
+        ),
+        directional_bright_light_total: inheritFromToken.get(
+          "directional_bright_light_total"
+        ),
+        has_directional_dim_light: inheritFromToken.get(
+          "has_directional_dim_light"
+        ),
+        directional_dim_light_total: inheritFromToken.get(
+          "directional_dim_light_total"
+        ),
+      });
+
+      inheritFromToken.set({
+        emits_bright_light: false,
+        emits_low_light: false,
+        has_directional_bright_light: false,
+        has_directional_dim_light: false,
+      });
+    } else {
+      const [bright, dim, direction] = _.map(lightOptions, (lightOption) =>
+        parseFloat(lightOption)
+      );
+      const tokenLight = {};
+
+      if (bright > 0) {
+        tokenLight.emits_bright_light = true;
+        tokenLight.bright_light_distance = bright;
+        if (direction > 0) {
+          tokenLight.has_directional_bright_light = true;
+          tokenLight.directional_bright_light_total = bright;
+        }
+      } else {
+        tokenLight.emits_bright_light = false;
+        tokenLight.has_directional_bright_light = false;
+      }
+
+      if (dim > 0) {
+        tokenLight.emits_low_light = true;
+        tokenLight.low_light_distance = bright + dim;
+
+        if (direction > 0) {
+          tokenLight.has_directional_dim_light = true;
+          tokenLight.directional_dim_light_total = dim;
+        }
+      } else {
+        tokenLight.emits_low_light = false;
+        tokenLight.has_directional_dim_light = false;
+      }
+
+      tokenToSet.set(tokenLight);
+    }
+  }
+
+  function setTokenAura(tokenToSet, inheritFromToken, auraOptions) {
+    const aura = auraOptions[0];
+    if (inheritFromToken && /^inherit$/i.test(auraOptions[1])) {
+      tokenToSet.set({
+        [`${aura}_radius`]: inheritFromToken.get(`${aura}_radius`),
+        [`${aura}_color`]: inheritFromToken.get(`${aura}_color`),
+        [`${aura}_square`]: inheritFromToken.get(`${aura}_square`),
+        [`showplayers_${aura}`]: inheritFromToken.get(`showplayers_${aura}`),
+      });
+
+      inheritFromToken.set({ [`${aura}_radius`]: "" });
+    } else {
+      const [, radius, color, shape, isVisible] = auraOptions;
+
+      tokenToSet.set({
+        [`${aura}_radius`]: radius > 0 ? radius : "",
+        [`${aura}_color`]: color || "transparent",
+        [`${aura}_square`]: shape === "square",
+        [`showplayers_${aura}`]: isVisible === "true",
+      });
+    }
   }
 
   function validateCommand(message) {
@@ -235,11 +320,7 @@ const DropItem = (function () {
       )
     ) {
       throw new Error(
-        `<code>${
-          args[0]
-        }</code> is not a valid item type. For a list of the current, valid item types that can be ${
-          command === DROP ? "dropped on the tabletop" : "updated"
-        }, call the <code>!dropitem types</code> command.`
+        `<code>${args[0]}</code> is not a valid item type. For a list of the current, valid item types, call the <code>!dropitem types</code> command.`
       );
     }
 
@@ -247,6 +328,48 @@ const DropItem = (function () {
       throw new Error(
         `No updates were specified for the <code>${args[0]}</code> item type.`
       );
+    }
+
+    if (command === DROP && args[2]) {
+      const settings = _.map(args[2].split(/\s*,\s*/), (argString) =>
+        argString.toLowerCase()
+      );
+
+      const itemOptions = {};
+      _.each(settings, (setting) => {
+        if (!/^(light|aura)=/i.test(setting)) {
+          throw new Error(
+            `<code>${setting}</code> is not a valid setting type for the dropped item. The setting type must either be <code>light</code> or <code>aura</code> followed by an equals sign <code>=</code>.`
+          );
+        }
+        const equalsIndex = setting.indexOf("=");
+        const optionType = setting.slice(0, equalsIndex);
+        const splitOptions = setting.slice(equalsIndex + 1).split(" ");
+        if (splitOptions.length !== 1 && splitOptions[0] !== "") {
+          itemOptions[optionType] = splitOptions;
+        }
+      });
+
+      const { aura } = itemOptions;
+      if (aura && aura.length > 1 && !/^aura(1|2)$/.test(aura[0])) {
+        throw new Error(
+          `<code>${aura[0]}</code> is not a valid aura. You must enter either <code>aura1</code> or <code>aura2</code>.`
+        );
+      }
+
+      if (aura && aura[2] && !/^(\#([\da-f]{6})|transparent)$/.test(aura[2])) {
+        throw new Error(
+          `<code>${aura[2]}</code> is not a valid color value. Color value must either be <code>transparent</code>, or be in HEX format with exactly 6 characters following a hash <code>#</code>, e.g. <code>#ff0000</code>.`
+        );
+      }
+
+      if (aura && aura[3] && !/^(circle|square)$/i.test(aura[3])) {
+        throw new Error(
+          `<code>${aura[3]}</code> is not a valid aura shape. The aura shape must be either <code>circle</code> or <code>square</code>.`
+        );
+      }
+
+      return [command, args[0], args[1], itemOptions];
     }
 
     if (command === GM_ONLY && args[0] && !/^true|false$/i.test(args[0])) {
@@ -270,7 +393,6 @@ const DropItem = (function () {
 
   function updateItemType(selectedToken, typeToUpdate, newName) {
     const currentTypes = state[DROPITEM_BASE_NAME].itemTypes;
-    let updatedTypeName = "";
     const updatedTypes = _.map(currentTypes, (itemType) => {
       if (itemType.name.toLowerCase() === typeToUpdate.toLowerCase()) {
         const token = selectedToken
@@ -280,8 +402,6 @@ const DropItem = (function () {
         const imgsrc = token
           ? getCleanImgsrc(token.get("imgsrc"))
           : itemType.imgsrc;
-
-        updatedTypeName = itemType.name;
 
         return {
           name: newName || itemType.name,
@@ -295,12 +415,22 @@ const DropItem = (function () {
     state[DROPITEM_BASE_NAME].itemTypes = sortIgnoringCase(updatedTypes);
   }
 
-  function dropItem(selectedToken, player, itemTypeToDrop, itemDisplayName) {
+  function dropItem(
+    selectedToken,
+    itemTypeToDrop,
+    itemDisplayName,
+    itemOptions
+  ) {
+    const droppedByToken = getObj("graphic", selectedToken._id);
     if (!itemDisplayName) {
-      itemDisplayName = `${player.name} ${itemTypeToDrop.name}`;
+      itemDisplayName = `${droppedByToken.get("name")} ${itemTypeToDrop.name}`;
     }
 
-    const droppedByToken = getObj("graphic", selectedToken._id);
+    const characterId = droppedByToken.get("represents");
+    const characterControl = getObj("character", characterId).get(
+      "controlledby"
+    );
+
     const droppedItem = createObj("graphic", {
       _pageid: getObj("page", droppedByToken.get("pageid")).get("id"),
       imgsrc: itemTypeToDrop.imgsrc,
@@ -311,8 +441,16 @@ const DropItem = (function () {
       height: 70,
       layer: "objects",
       showname: true,
-      controlledby: player.id,
+      controlledby: characterControl || _.pluck(getGMPlayers(), "id").join(","),
     });
+
+    if (itemOptions.light) {
+      setTokenLight(droppedItem, droppedByToken, itemOptions.light);
+    }
+
+    if (itemOptions.aura && itemOptions.aura.length > 1) {
+      setTokenAura(droppedItem, droppedByToken, itemOptions.aura);
+    }
 
     toFront(droppedItem);
   }
@@ -436,12 +574,7 @@ const DropItem = (function () {
             (itemType) => itemType.name.toLowerCase() === args[0].toLowerCase()
           );
 
-          dropItem(
-            message.selected[0],
-            { id: message.playerid, name: message.who },
-            itemTypeToDrop,
-            args[1]
-          );
+          dropItem(message.selected[0], itemTypeToDrop, args[1], args[2]);
           break;
         case GM_ONLY:
           if (args.length) {
