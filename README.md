@@ -54,23 +54,20 @@ If no display name is provided, the display name will default to the character t
 
 #### Item settings
 
-When dropping an item, you can also pass in settings for the light and aura. When doing so, you can omit the `display name` argument with the syntax `!dropitem drop|Backpack||[item settings]`.
+When dropping an item, you can also pass in settings for its light and aura. When doing so, you can omit the `display name` argument with the syntax `!dropitem drop|Backpack||[item settings]` (note the double vertical pipes between "Backpack" and `[item settings]`).
 
-The `item settings` argument must be a comma separated list of settings or a single setting. Each setting passed in must follow the syntax, `settingType=[setting values]`, e.g. `light=[setting values]` `light=[setting values], aura=[setting values]`.
+The `item settings` argument must be a comma separated list of settings or a single setting. Each setting passed in must follow the syntax, `settingType=[setting values]`, e.g. `light=[setting values]` or `light=[setting values], aura1=[setting values]`. Both light and aura settings can be passed customized values or they can inherit the values from the token dropping the item.
 
-Both the light and aura settings can be passed a value of `inherit`. Passing in a value of `inherit` will copy the applicable setting from the token that is dropping the item, and then turn off the setting for that token. For example, calling `!dropitem drop|Torch||light=inherit` would cause the torch item to use the light settings of the token that dropped it and also turn off any light being emitted by the token. This can be useful for when a token is "carrying" a torch and drops it to the ground.
+For the light setting, you can pass in customized light values with the syntax `light=brightLight dimLight lightDirection lightColor`. The `lightColor` is optional, but must be a 6 character HEX value, e.g. `#000000`, or `transparent`. All other values passed in must be either numbers or `off`, and the `lightDirection` value must be between 0 and 360. For example, calling `!dropitem drop|Torch||light=30 30 90 #ff0000` would cause the dropped torch item to emit bright light for 30 feet, dim light for 30 feet beyond that, with the light direction creating a cone shape of 90 degrees and the light color being red.
 
-For the light option, you can pass in customized light settings with the syntax `light=brightLight dimLight lightDirection`. For example, calling `!dropitem drop|Torch||light=30 30 90` would cause the dropped torch item to emit bright light for 30 feet, dim light for 30 feet beyond that, with the light direction creating a cone shape. All three values passed in must be a number greater than 0. A value of 0, or a missing value, will turn off the applicable light setting. For example, `light=30 0 0` or `light=30` would result in an item emitting bright light for 30 feet only, with the dim light and light direction being turned off.
+For the aura settings, you can pass in customized aura values with the syntax `aura1=` or `aura2=` followed by `auraRadius auraColor auraShape visibleToPlayers`, where:
 
-For the aura option, you can pass in customized aura settings with the syntax `aura=auraNumber auraRadius auraColor auraShape visibleToPlayers`, where:
+- `auraRadius` must be a number, `off`, or `inherit` (see below),
+- `auraColor` must be a 6 character HEX value, e.g. `#000000`, or `transparent`,
+- `auraShape` must be either `circle` or `square`, and
+- `visibleToPlayers` is optional, but must be either `true` or `false` (defaults to `true` if not passed in)
 
-- The `auraNumber` argument must be either `aura1` or `aura2`,
-- The `auraRadius` must be a number greater than 0,
-- The `auraColor` must be a 6 character HEX value, e.g. `#000000`,
-- The `auraShape` must be either `circle` or `square`, and
-- The `visibleToPlayers` argument is optional, but must be either `true` or `false` with the default being `true` if not passed in
-
-If the `auraRadius` value is 0 or is not passed in, the aura will be turned off for the item.
+For both the light and aura settings, passing in a single value of `inherit` will copy the applicable setting from the token that is dropping the item, and then turn off the setting for that token. For example, calling `!dropitem drop|Torch||light=inherit` would cause the torch item to use the light settings of the token that dropped it and also turn off any light being emitted by that token. This can be useful for when a token drops a torch it's "carrying" and you want to transfer the light emitted by the token to the torch item.
 
 ### GM only
 
