@@ -221,7 +221,11 @@ const DropItem = (function () {
         name: `${DROPITEM_BASE_NAME}-${COMMANDS.DROP}-with-settings`,
         action: `!dropitem ${COMMANDS.DROP}|${createTypesQuery(
           "Item to drop"
-        )}|?{Item display name (optional)}|light=?{Item light settings (brightLight dimLight lightDirection) or "inherit" - "off" to omit a light setting, and lightDirection must be between 0 and 360|off off off} ?{Item light color - select "Transparent" for default color${createColorQuery()}}, aura1=?{Item aura1 radius - must be a number, "off", or "inherit"|off} ?{Item aura1 color${createColorQuery()}} ?{Item aura1 shape|Circle|Square} ?{Item aura1 visible to players|True|False}, aura2=?{Item aura2 radius - must be a number, "off", or "inherit"|off} ?{Item aura2 color${createColorQuery()}} ?{Item aura2 shape|Circle|Square} ?{Item aura2 visible to players|True|False}`,
+        )}|?{Item display name (optional)}|light=?{Item light settings (brightLight dimLight lightDirection) or "inherit" - "off" to omit a light setting, and lightDirection must be between 0 and 360|off off off} ?{Item light color - select "Transparent" for default color${createColorQuery()}}, ${_.map(
+          ["aura1", "aura2"],
+          (aura) =>
+            `${aura}=?{Item ${aura} radius - must be a number, "off", or "inherit"|off} ?{Item ${aura} color${createColorQuery()}} ?{Item ${aura} shape|Circle|Square} ?{Item ${aura} visible to players|True|False}`
+        ).join(", ")}`,
       },
       {
         name: `${DROPITEM_BASE_NAME}-${COMMANDS.TYPES}`,
@@ -594,19 +598,14 @@ const DropItem = (function () {
       setTokenLight(droppedItem, droppedByToken, itemSettings.light);
     }
 
-    if (itemSettings && itemSettings.aura1) {
-      setTokenAura(droppedItem, droppedByToken, [
-        "aura1",
-        ...itemSettings.aura1,
-      ]);
-    }
-
-    if (itemSettings && itemSettings.aura2) {
-      setTokenAura(droppedItem, droppedByToken, [
-        "aura2",
-        ...itemSettings.aura2,
-      ]);
-    }
+    _.each(["aura1", "aura2"], (aura) => {
+      if (itemSettings && itemSettings[aura]) {
+        setTokenAura(droppedItem, droppedByToken, [
+          aura,
+          ...itemSettings[aura],
+        ]);
+      }
+    });
 
     toFront(droppedItem);
   }
