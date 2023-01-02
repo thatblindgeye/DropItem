@@ -2,14 +2,14 @@
  * DropItem
  *
  * Version 1.1
- * Last updated: December 29, 2022
+ * Last updated: January 2, 2023
  * Author: thatblindgeye
  * GitHub: https://github.com/thatblindgeye
  */
 
 const DropItem = (function () {
   const VERSION = "1.1 ";
-  const LAST_UPDATED = 1672344672272;
+  const LAST_UPDATED = 1672679566115;
   const DROPITEM_BASE_NAME = "DropItem";
   const DROPITEM_DISPLAY_NAME = `${DROPITEM_BASE_NAME} v${VERSION}`;
 
@@ -107,26 +107,36 @@ const DropItem = (function () {
         name: `Backpack`,
         imgsrc:
           "https://s3.amazonaws.com/files.d20.io/images/314137120/MbQpDkeFWG03arnAiWX-IQ/thumb.png?1668369565",
+        height: 70,
+        width: 70,
       },
       {
         name: `Misc`,
         imgsrc:
           "https://s3.amazonaws.com/files.d20.io/images/314137148/HE2Rxv99BLN0dv95bEixqw/thumb.png?1668369572",
+        height: 70,
+        width: 70,
       },
       {
         name: `Torch`,
         imgsrc:
           "https://s3.amazonaws.com/files.d20.io/images/314137207/WCUj5tn7zM2vNm8vKURMIA/thumb.png?1668369589",
+        height: 70,
+        width: 70,
       },
       {
         name: `Treasure`,
         imgsrc:
           "https://s3.amazonaws.com/files.d20.io/images/314137214/HiPuaB3olvDI8UTQk1VOfg/thumb.png?1668369591",
+        height: 70,
+        width: 70,
       },
       {
         name: `Weapon`,
         imgsrc:
           "https://s3.amazonaws.com/files.d20.io/images/314137220/-CYXx2qm35Xq3XQJMItm9g/thumb.png?1668369593",
+        height: 70,
+        width: 70,
       },
     ],
   };
@@ -534,10 +544,12 @@ const DropItem = (function () {
   function createItemType(selectedToken, name) {
     const token = getObj("graphic", selectedToken._id);
     const imgsrc = getCleanImgsrc(token.get("imgsrc"));
+    const height = token.get("height");
+    const width = token.get("width");
 
     state[DROPITEM_BASE_NAME].itemTypes = sortIgnoringCase([
       ...state[DROPITEM_BASE_NAME].itemTypes,
-      { name, imgsrc },
+      { name, imgsrc, height, width },
     ]);
   }
 
@@ -553,9 +565,14 @@ const DropItem = (function () {
           ? getCleanImgsrc(token.get("imgsrc"))
           : itemType.imgsrc;
 
+        const height = token ? token.get("height") : itemType.height;
+        const width = token ? token.get("width") : itemType.width;
+
         return {
           name: newName || itemType.name,
           imgsrc,
+          height,
+          width,
         };
       }
 
@@ -580,15 +597,17 @@ const DropItem = (function () {
     const characterControl = getObj("character", characterId).get(
       "controlledby"
     );
+    const { imgsrc, height, width } = itemTypeToDrop;
 
     const droppedItem = createObj("graphic", {
       _pageid: getObj("page", droppedByToken.get("pageid")).get("id"),
-      imgsrc: itemTypeToDrop.imgsrc,
+      imgsrc,
       name: itemDisplayName,
+      showplayers_name: true,
       top: droppedByToken.get("top"),
       left: droppedByToken.get("left"),
-      width: 70,
-      height: 70,
+      width,
+      height,
       layer: "objects",
       showname: true,
       controlledby: characterControl || _.pluck(getGMPlayers(), "id").join(","),
